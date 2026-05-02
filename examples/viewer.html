@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DProject Viewer — MSPDI XML</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: #1a1a2e;
+    background: #f6f7fb;
+    display: flex; flex-direction: column;
+  }
+  header {
+    background: linear-gradient(135deg, #4361ee, #3730a3);
+    color: white;
+    padding: 16px 24px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  header .sub { opacity: 0.7; font-size: 12px; }
+  header .ver { margin-left: auto; opacity: 0.5; font-size: 12px; font-family: ui-monospace, monospace; }
+
+  #drop {
+    flex: 1;
+    margin: 24px;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    background: white;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color .2s, background .2s;
+    cursor: pointer;
+  }
+  #drop.dragover { border-color: #4361ee; background: #eef2ff; }
+  #drop .icon { font-size: 48px; opacity: 0.3; }
+  #drop .hint { color: #64748b; font-size: 14px; }
+  #drop input { display: none; }
+  #drop button {
+    background: #4361ee; color: white; border: none; padding: 8px 16px;
+    border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+
+  main { flex: 1; display: none; flex-direction: column; }
+  main.visible { display: flex; }
+  .meta-bar {
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  }
+  .meta-bar .title { font-weight: 700; font-size: 16px; }
+  .meta-bar .dim { color: #64748b; font-size: 12px; }
+  .meta-bar .actions { margin-left: auto; display: flex; gap: 8px; }
+  .meta-bar button {
+    background: white; border: 1px solid #d1d5db; padding: 6px 12px;
+    border-radius: 6px; font-size: 12px; cursor: pointer; color: #374151;
+  }
+  .meta-bar button:hover { background: #f9fafb; }
+  .meta-bar button.primary { background: #4361ee; color: white; border-color: #4361ee; }
+
+  .banner {
+    padding: 10px 24px; font-size: 13px;
+    border-bottom: 1px solid;
+  }
+  .banner.ok    { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+  .banner.warn  { background: #fef3c7; border-color: #fcd34d; color: #78350f; }
+  .banner.error { background: #fee2e2; border-color: #fca5a5; color: #7f1d1d; }
+  .banner b { font-weight: 700; }
+
+  .tabs {
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 24px;
+    display: flex; gap: 4px;
+  }
+  .tabs button {
+    background: none; border: none; padding: 12px 16px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    color: #64748b; border-bottom: 2px solid transparent;
+  }
+  .tabs button:hover { color: #1a1a2e; }
+  .tabs button.active { color: #4361ee; border-bottom-color: #4361ee; }
+  .tabs .count {
+    display: inline-block; min-width: 18px; height: 18px; padding: 0 6px;
+    margin-left: 4px; border-radius: 9px;
+    background: #e5e7eb; color: #64748b;
+    font-size: 11px; line-height: 18px; text-align: center; font-weight: 600;
+  }
+
+  .panels { flex: 1; overflow: auto; }
+  .panel { display: none; padding: 16px 24px; }
+  .panel.active { display: block; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  th { background: #f8f9fb; padding: 8px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  tr:hover td { background: #f9fafb; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; font-size: 12px; }
+  td.dim { color: #94a3b8; font-size: 12px; }
+  td .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .pill.summary { background: #eef2ff; color: #4338ca; }
+  .pill.milestone { background: #fef3c7; color: #92400e; }
+  .pill.task { background: #f1f5f9; color: #475569; }
+  .pill.material { background: #fef3c7; color: #92400e; }
+  .pill.work { background: #dbeafe; color: #1e40af; }
+  .pill.fs { background: #dbeafe; color: #1e40af; }
+  .pill.ff { background: #fce7f3; color: #9f1239; }
+  .pill.ss { background: #d1fae5; color: #065f46; }
+  .pill.sf { background: #fef3c7; color: #92400e; }
+  .indent { display: inline-block; }
+  .info { color: #64748b; font-size: 12px; padding: 12px 0; }
+  pre { background: #1e293b; color: #f1f5f9; padding: 16px; border-radius: 6px; overflow: auto; font: 11px/1.5 ui-monospace, monospace; max-height: 400px; }
+
+  .empty { color: #94a3b8; padding: 24px; text-align: center; font-style: italic; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>DProject Viewer</h1>
+    <div class="sub">MS Project (MSPDI XML) — drag &amp; drop to inspect</div>
+  </div>
+  <div class="ver" id="ver">v?.?.?</div>
+</header>
+
+<div id="drop">
+  <div class="icon">📂</div>
+  <div><b>Drop an MSPDI .xml file here</b></div>
+  <div class="hint">Or click to choose</div>
+  <button type="button" id="pick">Choose File</button>
+  <input type="file" id="file" accept=".xml,application/xml,text/xml">
+  <div class="hint" style="margin-top:16px">Tries the 4 sample fixtures: <a href="#" id="sample-01">sample-01</a> · <a href="#" id="sample-3p">sample-3point</a> · <a href="#" id="sample-grp">sample-grouping</a> · <a href="#" id="sample-link">sample-linktypes</a></div>
+</div>
+
+<main id="main">
+
+  <div class="meta-bar">
+    <div>
+      <div class="title" id="m-title">—</div>
+      <div class="dim" id="m-sub">—</div>
+    </div>
+    <div class="actions">
+      <button id="btn-roundtrip">Round-trip ↻</button>
+      <button id="btn-rawxml">View XML</button>
+      <button id="btn-rawjson">View JSON</button>
+      <button class="primary" id="btn-new">Load another file</button>
+    </div>
+  </div>
+
+  <div id="banner" class="banner ok"></div>
+
+  <div class="tabs">
+    <button data-tab="tasks"     class="active">Tasks <span class="count" id="c-tasks"></span></button>
+    <button data-tab="resources">Resources <span class="count" id="c-res"></span></button>
+    <button data-tab="assignments">Assignments <span class="count" id="c-asn"></span></button>
+    <button data-tab="calendars">Calendars <span class="count" id="c-cal"></span></button>
+    <button data-tab="baselines">Baselines <span class="count" id="c-base"></span></button>
+    <button data-tab="extattr">Ext-Attrs <span class="count" id="c-ea"></span></button>
+    <button data-tab="raw">Raw</button>
+  </div>
+
+  <div class="panels">
+    <div class="panel active" id="panel-tasks"></div>
+    <div class="panel" id="panel-resources"></div>
+    <div class="panel" id="panel-assignments"></div>
+    <div class="panel" id="panel-calendars"></div>
+    <div class="panel" id="panel-baselines"></div>
+    <div class="panel" id="panel-extattr"></div>
+    <div class="panel" id="panel-raw"></div>
+  </div>
+</main>
+
+<script>/*!
+ * DProject v1.0.5 — MS Project (MSPDI XML) reader for JS/TS
+ * https://github.com/Dharmesh2015/dplan-source/tree/main/DPlan/dproject
+ * Copyright (c) 2026 Dharmesh Patel — MIT License
+ */
+!function(e){"use strict";var t,n=e;!function(){function e(e){if(null==e||""===e)return 0;const t=parseInt(e,10);return isNaN(t)?0:t}const t=["FF","FS","SF","SS"],r=["ASAP","ALAP","MSO","MFO","SNET","SNLT","FNET","FNLT","MOO"];var s={asString:function(e){return null==e?"":String(e)},asInt:e,asFloat:function(e){if(null==e||""===e)return 0;const t=parseFloat(e);return isNaN(t)?0:t},asBool:function(e){return"1"===e||"true"===e||"TRUE"===e||"True"===e},asDate:function(e){return e?String(e):null},asDurationMinutes:function(e){if(!e)return 0;const t=/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(e);return t?24*(t[1]?parseInt(t[1],10):0)*60+60*(t[2]?parseInt(t[2],10):0)+(t[3]?parseInt(t[3],10):0)+(t[4]?parseFloat(t[4]):0)/60:0},asDepType:function(t){if(null==t||""===t)return 1;const n=e(t);return n>=0&&n<4?n:1},depTypeName:function(e){return t[e]||"FS"},asLagMinutes:function(t){return e(t)/10},constraintName:function(e){return r[e]||"ASAP"},DEP_TYPE_NAMES:t,CONSTRAINT_NAMES:r};void 0!==n&&(n.DProjectCoerce=s)}(),t={PROJECT_FIELDS:[["Name","name","string"],["Title","title","string"],["Subject","subject","string"],["Author","author","string"],["Manager","manager","string"],["Company","company","string"],["Category","category","string"],["Keywords","keywords","string"],["CreationDate","createdAt","date"],["LastSaved","lastSavedAt","date"],["StartDate","startDate","date"],["FinishDate","finishDate","date"],["StatusDate","statusDate","date"],["CurrentDate","currentDate","date"],["ScheduleFromStart","scheduleFromStart","bool"],["CurrencySymbol","currencySymbol","string"],["CurrencyCode","currencyCode","string"],["CurrencyDigits","currencyDigits","int"],["MinutesPerDay","minutesPerDay","int"],["MinutesPerWeek","minutesPerWeek","int"],["DaysPerMonth","daysPerMonth","int"],["DefaultStartTime","defaultStartTime","string"],["DefaultFinishTime","defaultFinishTime","string"],["CalendarUID","calendarUid","int"],["DefaultTaskType","defaultTaskType","int"],["WeekStartDay","weekStartDay","int"],["NewTasksEstimated","newTasksEstimated","bool"]],TASK_FIELDS:[["UID","uid","int",!0],["ID","id","int",!0],["Name","name","string",!0],["Type","type","int"],["IsNull","isNull","bool",!0],["CreateDate","createdAt","date"],["Contact","contact","string"],["WBS","wbs","string"],["OutlineNumber","outlineNumber","string"],["OutlineLevel","outlineLevel","int",!0],["Priority","priority","int"],["Start","start","date"],["Finish","finish","date"],["Duration","duration","duration",!0],["DurationFormat","durationFormat","int"],["Work","work","duration"],["Stop","stopDate","date"],["Resume","resumeDate","date"],["EffortDriven","effortDriven","bool",!0],["Recurring","recurring","bool"],["OverAllocated","overAllocated","bool"],["Estimated","estimated","bool"],["Milestone","milestone","bool",!0],["Summary","summary","bool",!0],["Critical","critical","bool",!0],["IsSubproject","isSubproject","bool"],["ExternalTask","externalTask","bool"],["EarlyStart","earlyStart","date"],["EarlyFinish","earlyFinish","date"],["LateStart","lateStart","date"],["LateFinish","lateFinish","date"],["StartVariance","startVariance","int"],["FinishVariance","finishVariance","int"],["WorkVariance","workVariance","float"],["FreeSlack","freeSlack","int"],["TotalSlack","totalSlack","int"],["FixedCost","fixedCost","float"],["FixedCostAccrual","fixedCostAccrual","int"],["PercentComplete","percentComplete","int",!0],["PercentWorkComplete","percentWorkComplete","int",!0],["Cost","cost","float"],["ActualCost","actualCost","float"],["RemainingCost","remainingCost","float"],["ActualDuration","actualDuration","duration"],["RemainingDuration","remainingDuration","duration"],["ActualWork","actualWork","duration"],["RemainingWork","remainingWork","duration"],["ConstraintType","constraintType","int",!0],["ConstraintDate","constraintDate","date"],["Deadline","deadline","date"],["CalendarUID","calendarUid","int"],["Notes","notes","string"],["HideBar","hideBar","bool"],["Rollup","rollup","bool"],["BCWS","bcws","float"],["BCWP","bcwp","float"]],RESOURCE_FIELDS:[["UID","uid","int",!0],["ID","id","int",!0],["Name","name","string",!0],["Type","type","int",!0],["IsNull","isNull","bool"],["Initials","initials","string"],["Phonetics","phonetics","string"],["NTAccount","ntAccount","string"],["MaterialLabel","materialLabel","string"],["Code","code","string"],["Group","group","string"],["WorkGroup","workGroup","int"],["EmailAddress","emailAddress","string"],["MaxUnits","maxUnits","float"],["PeakUnits","peakUnits","float"],["OverAllocated","overAllocated","bool"],["CanLevel","canLevel","bool"],["AccrueAt","accrueAt","int"],["Work","work","duration"],["ActualWork","actualWork","duration"],["RemainingWork","remainingWork","duration"],["StandardRate","standardRate","float"],["OvertimeRate","overtimeRate","float"],["CostPerUse","costPerUse","float"],["Cost","cost","float"],["ActualCost","actualCost","float"],["RemainingCost","remainingCost","float"],["CalendarUID","calendarUid","int"],["IsGeneric","isGeneric","bool"],["IsCostResource","isCostResource","bool"],["IsInactive","isInactive","bool"],["Notes","notes","string"]],ASSIGNMENT_FIELDS:[["UID","uid","int",!0],["TaskUID","taskUid","int",!0],["ResourceUID","resourceUid","int",!0],["PercentWorkComplete","percentWorkComplete","int"],["Units","units","float"],["Work","work","duration"],["ActualWork","actualWork","duration"],["RemainingWork","remainingWork","duration"],["Cost","cost","float"],["ActualCost","actualCost","float"],["RemainingCost","remainingCost","float"],["Start","start","date"],["Finish","finish","date"],["Delay","delay","int"],["LevelingDelay","levelingDelay","int"],["CostRateTable","costRateTable","int"],["Confirmed","confirmed","bool"],["Notes","notes","string"],["HasFixedRateUnits","hasFixedRateUnits","bool"],["FixedMaterial","fixedMaterial","bool"]],CALENDAR_FIELDS:[["UID","uid","int",!0],["Name","name","string",!0],["IsBaseCalendar","isBaseCalendar","bool",!0],["IsBaselineCalendar","isBaselineCalendar","bool"],["BaseCalendarUID","baseCalendarUid","int",!0]],EXCEPTION_FIELDS:[["Name","name","string"],["Type","type","int"],["EnteredStartDate","startDate","date"],["EnteredFinishDate","finishDate","date"],["DayWorking","dayWorking","bool"],["Occurrences","occurrences","int"]],WEEKDAY_FIELDS:[["DayType","dayType","int"],["DayWorking","dayWorking","bool"]],EXTATTR_DEF_FIELDS:[["FieldID","fieldId","string"],["FieldName","fieldName","string"],["Alias","alias","string"],["PhoneticAlias","phoneticAlias","string"]],EXTATTR_VALUE_FIELDS:[["FieldID","fieldId","string"],["Value","value","string"],["ValueID","valueId","string"],["UID","rowUid","int"]],BASELINE_FIELDS:[["Number","number","int"],["Start","start","date"],["Finish","finish","date"],["Duration","duration","duration"],["Work","work","duration"],["Cost","cost","float"]]},void 0!==n&&(n.DProjectFields=t),function(){function e(e){return e.indexOf("&")<0?e:e.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#x([0-9a-fA-F]+);/g,function(e,t){return String.fromCharCode(parseInt(t,16))}).replace(/&#(\d+);/g,function(e,t){return String.fromCharCode(parseInt(t,10))}).replace(/&amp;/g,"&")}function t(e){const t=e.indexOf(":");return t>=0?e.substring(t+1):e}function r(e,t){return{name:e,attrs:t,children:[],text:""}}function s(n){if("string"!=typeof n)throw new TypeError("parseXML: expected string");const s=n.length;let o=0;function i(e){return 32===e||9===e||10===e||13===e}function a(){for(;o<s&&i(n.charCodeAt(o));)o++}function u(){if(60===n.charCodeAt(o)&&63===n.charCodeAt(o+1)){const e=n.indexOf("?>",o);if(e<0)throw new Error("DProject: unterminated processing instruction");return o=e+2,!0}return!1}function c(){if(60===n.charCodeAt(o)&&33/*!*/===n.charCodeAt(o+1)&&45===n.charCodeAt(o+2)&&45===n.charCodeAt(o+3)){const e=n.indexOf("--\x3e",o+4);if(e<0)throw new Error("DProject: unterminated comment");return o=e+3,!0}return!1}function l(){if("<!DOCTYPE"===n.substr(o,9).toUpperCase()){let e=1;for(o+=9;o<s&&e>0;){const t=n.charCodeAt(o);60===t?e++:62===t&&e--,o++}return!0}return!1}function d(){if("<![CDATA["===n.substr(o,9)){const e=n.indexOf("]]>",o+9);if(e<0)throw new Error("DProject: unterminated CDATA section");const t=n.substring(o+9,e);return o=e+3,t}return null}function f(){o++;const r=o;for(;o<s;){const e=n.charCodeAt(o);if(i(e)||47===e||62===e)break;o++}const u=t(n.substring(r,o)),c={};for(;o<s;){a();const t=n.charCodeAt(o);if(47===t||62===t)break;const r=o;for(;o<s;){const e=n.charCodeAt(o);if(i(e)||61===e||47===e||62===e)break;o++}const u=n.substring(r,o);let l="";if(a(),61===n.charCodeAt(o)){o++,a();const t=n.charCodeAt(o);if(34!==t&&39!==t)throw new Error("DProject: expected quoted attribute value at "+o);o++;const r=o;for(;o<s&&n.charCodeAt(o)!==t;)o++;if(o>=s)throw new Error("DProject: unterminated attribute value");l=e(n.substring(r,o)),o++}u&&(c[u]=l)}let l=!1;if(47===n.charCodeAt(o)&&(l=!0,o++),62!==n.charCodeAt(o))throw new Error("DProject: expected `>` at "+o);return o++,{name:u,attrs:c,selfClosing:l}}function p(){o+=2;const e=o;for(;o<s&&62!==n.charCodeAt(o);)o++;if(62!==n.charCodeAt(o))throw new Error("DProject: unterminated close tag");const r=t(n.substring(e,o).replace(/\s+$/,""));return o++,r}function h(){const t=o;for(;o<s&&60!==n.charCodeAt(o);)o++;return e(n.substring(t,o))}for(s>0&&65279===n.charCodeAt(0)&&(o=1);o<s&&(a(),!(o>=s));){if(60===n.charCodeAt(o)){const e=n.charCodeAt(o+1);if(63===e){u();continue}if(33===e){if(c())continue;if(l())continue;throw new Error("DProject: unsupported <! construct at "+o)}break}o++}if(o>=s||60!==n.charCodeAt(o))throw new Error("DProject: no root element found");const g=f(),D=r(g.name,g.attrs);if(g.selfClosing)return D;const E=[D];for(;o<s&&E.length>0;)if(60===n.charCodeAt(o)){const e=n.charCodeAt(o+1);if(47===e){const e=p(),t=E[E.length-1];if(t.name!==e)throw new Error("DProject: mismatched close tag — expected </"+t.name+">, got </"+e+">");E.pop();continue}if(63===e){u();continue}if(33===e){const e=d();if(null!==e){const t=E[E.length-1];t.text=t.text?t.text+e:e;continue}if(c())continue;if(l())continue;throw new Error("DProject: unsupported <! at "+o)}const t=f(),s=r(t.name,t.attrs);E[E.length-1].children.push(s),t.selfClosing||E.push(s)}else{const e=h().replace(/^\s+|\s+$/g,"");if(e.length>0){const t=E[E.length-1];t.text=t.text?t.text+e:e}}if(E.length>0)throw new Error("DProject: unclosed elements: "+E.map(function(e){return e.name}).join(","));return D}function o(e,t){if(!e||!e.children)return null;const n=e.children;for(let e=0;e<n.length;e++)if(n[e].name===t)return n[e];return null}function i(e,t){const n=[];if(!e||!e.children)return n;const r=e.children;for(let e=0;e<r.length;e++)r[e].name===t&&n.push(r[e]);return n}function a(e,t){const n=o(e,t);return n?n.text:""}void 0!==n&&(n.DProjectXML={parseXML:s,getChild:o,getChildren:i,txt:a})}(),function(){const e="undefined"!=typeof require?require("./xml"):void 0!==n?n.DProjectXML:null,t="undefined"!=typeof require?require("./types/fields"):void 0!==n?n.DProjectFields:null,r=e.getChild,s=e.getChildren,o=e.txt;function i(e,t){const n={};for(let s=0;s<t.length;s++){const o=t[s],i=o[0],a=o[1],u=r(e,i);n[a]=u?u.text:""}return n}function a(e){const t=s(e,"PredecessorLink"),n=[];for(let e=0;e<t.length;e++){const r=t[e];n.push({predecessorUid:o(r,"PredecessorUID"),type:o(r,"Type"),lag:o(r,"LinkLag"),lagFormat:o(r,"LagFormat"),crossProject:o(r,"CrossProject")})}return n}function u(e){const n=[],r=s(e,"Baseline");for(let e=0;e<r.length;e++)n.push(i(r[e],t.BASELINE_FIELDS));return n}function c(e){const n=[],o=s(e,"ExtendedAttribute");for(let e=0;e<o.length;e++){const s=o[e];r(s,"FieldName")||n.push(i(s,t.EXTATTR_VALUE_FIELDS))}return n}function l(e){const n=r(e,"WeekDays");if(!n)return[];const a=s(n,"WeekDay"),u=[];for(let e=0;e<a.length;e++){const n=a[e],c=i(n,t.WEEKDAY_FIELDS),l=r(n,"WorkingTimes"),d=[];if(l){const e=s(l,"WorkingTime");for(let t=0;t<e.length;t++)d.push({from:o(e[t],"FromTime"),to:o(e[t],"ToTime")})}c.workingTimes=d,u.push(c)}return u}function d(e){const n=r(e,"Exceptions");if(!n)return[];const a=s(n,"Exception"),u=[];for(let e=0;e<a.length;e++){const n=a[e],s=i(n,t.EXCEPTION_FIELDS);if(!s.startDate||!s.finishDate){const e=r(n,"TimePeriod");e&&(s.startDate||(s.startDate=o(e,"FromDate")),s.finishDate||(s.finishDate=o(e,"ToDate")))}u.push(s)}return u}var f={extractRawProject:function(e){if(!e||"Project"!==e.name)throw new Error("DProject: not an MSPDI file (root is <"+(e&&e.name)+"> not <Project>)");const n=i(e,t.PROJECT_FIELDS),o=r(e,"ExtendedAttributes"),f=[];if(o){const e=s(o,"ExtendedAttribute");for(let n=0;n<e.length;n++)f.push(i(e[n],t.EXTATTR_DEF_FIELDS))}const p=r(e,"Calendars"),h=p?s(p,"Calendar"):[],g=[];for(let e=0;e<h.length;e++){const n=h[e],r=i(n,t.CALENDAR_FIELDS);r.weekDays=l(n),r.exceptions=d(n),g.push(r)}const D=r(e,"Tasks"),E=D?s(D,"Task"):[],m=[];for(let e=0;e<E.length;e++){const n=E[e],r=i(n,t.TASK_FIELDS);r.predecessors=a(n),r.baselines=u(n),r.extendedAttributes=c(n),m.push(r)}const A=r(e,"Resources"),S=A?s(A,"Resource"):[],T=[];for(let e=0;e<S.length;e++){const n=S[e],r=i(n,t.RESOURCE_FIELDS);r.extendedAttributes=c(n),T.push(r)}const C=r(e,"Assignments"),I=C?s(C,"Assignment"):[],k=[];for(let e=0;e<I.length;e++){const n=I[e],r=i(n,t.ASSIGNMENT_FIELDS);r.extendedAttributes=c(n),k.push(r)}return{meta:n,extendedAttributeDefs:f,calendars:g,tasks:m,resources:T,assignments:k}},pluckFields:i,pluckPredecessors:a,pluckBaselines:u,pluckExtendedAttributeValues:c,pluckWeekDays:l,pluckExceptions:d};void 0!==n&&(n.DProjectParser=f)}(),function(){const e="undefined"!=typeof require?require("./types/coerce"):void 0!==n?n.DProjectCoerce:null,t="undefined"!=typeof require?require("./types/fields"):void 0!==n?n.DProjectFields:null;function r(t,n){switch(n){case"int":return e.asInt(t);case"float":return e.asFloat(t);case"bool":return e.asBool(t);case"date":return e.asDate(t);case"duration":return e.asDurationMinutes(t);default:return e.asString(t)}}function s(e,t){const n={};for(let s=0;s<t.length;s++){const o=t[s],i=o[1],a=o[2];n[i]=r(e[i],a)}return n}function o(t){const n=[];for(let r=0;r<t.length;r++){const s=t[r],o=e.asDepType(s.type);n.push({predecessorUid:e.asInt(s.predecessorUid),type:o,typeName:e.depTypeName(o),lag:e.asLagMinutes(s.lag),crossProject:e.asBool(s.crossProject)})}return n}function i(e){const t=e.slice().sort(function(e,t){return e.id-t.id}),n={};for(let e=0;e<t.length;e++){const r=t[e],s=r.outlineLevel||0,o=s>0?n[s-1]:null;if(r.parentUid=o?o.uid:null,(r.isNull||0===s&&(!r.name||""===r.name))&&e>0)continue;n[s]=r;const i=Object.keys(n);for(let e=0;e<i.length;e++){const t=parseInt(i[e],10);t>s&&delete n[t]}}return e}function a(e){const n=[];for(let r=0;r<e.length;r++)n.push(s(e[r],t.BASELINE_FIELDS));return n}function u(e){const n=[];for(let r=0;r<e.length;r++)n.push(s(e[r],t.EXTATTR_VALUE_FIELDS));return n}function c(e){const n=s(e,t.CALENDAR_FIELDS);n.weekDays=[];const r=e.weekDays||[];for(let e=0;e<r.length;e++){const o=s(r[e],t.WEEKDAY_FIELDS);o.workingTimes=(r[e].workingTimes||[]).slice(),n.weekDays.push(o)}n.exceptions=[];const o=e.exceptions||[];for(let e=0;e<o.length;e++)n.exceptions.push(s(o[e],t.EXCEPTION_FIELDS));return n}function l(e){const n=s(e.meta,t.PROJECT_FIELDS),r=[],l=e.extendedAttributeDefs||[];for(let e=0;e<l.length;e++)r.push(s(l[e],t.EXTATTR_DEF_FIELDS));const d=[],f=e.calendars||[];for(let e=0;e<f.length;e++)d.push(c(f[e]));const p=[];for(let n=0;n<e.tasks.length;n++){const r=s(e.tasks[n],t.TASK_FIELDS);r.predecessors=o(e.tasks[n].predecessors||[]),r.baselines=a(e.tasks[n].baselines||[]),r.extendedAttributes=u(e.tasks[n].extendedAttributes||[]),p.push(r)}i(p);const h=[];for(let n=0;n<e.resources.length;n++){const r=s(e.resources[n],t.RESOURCE_FIELDS);r.extendedAttributes=u(e.resources[n].extendedAttributes||[]),h.push(r)}const g=[];for(let n=0;n<e.assignments.length;n++){const r=s(e.assignments[n],t.ASSIGNMENT_FIELDS);r.extendedAttributes=u(e.assignments[n].extendedAttributes||[]),g.push(r)}return{meta:n,extendedAttributeDefs:r,calendars:d,tasks:p,resources:h,assignments:g}}void 0!==n&&(n.DProjectNormalizer={normalizeProject:l,coerceWithMap:s,computeParents:i,normalizePredecessors:o})}(),function(){const e={DUPLICATE_TASK_UID:"DUPLICATE_TASK_UID",DUPLICATE_RESOURCE_UID:"DUPLICATE_RESOURCE_UID",DANGLING_PARENT:"DANGLING_PARENT",DANGLING_PREDECESSOR:"DANGLING_PREDECESSOR",CIRCULAR_OUTLINE:"CIRCULAR_OUTLINE",CIRCULAR_DEPENDENCY:"CIRCULAR_DEPENDENCY",ASSIGNMENT_BAD_TASK:"ASSIGNMENT_BAD_TASK",ASSIGNMENT_BAD_RESOURCE:"ASSIGNMENT_BAD_RESOURCE",FINISH_BEFORE_START:"FINISH_BEFORE_START",NEGATIVE_DURATION:"NEGATIVE_DURATION",MISSING_NAME:"MISSING_NAME"};function t(e,t,n){return{code:e,message:t,where:n}}function r(n,r){const s=!1!==(r=r||{}).allowOrphanAssignments,o=[],i={};for(let r=0;r<n.tasks.length;r++){const s=n.tasks[r];void 0!==i[s.uid]?o.push(t(e.DUPLICATE_TASK_UID,"Duplicate task UID "+s.uid,{taskUid:s.uid})):i[s.uid]=s,s.outlineLevel>0&&(null==s.name||""===s.name)&&o.push(t(e.MISSING_NAME,"Task "+s.uid+" has empty name",{taskUid:s.uid})),s.start&&s.finish&&s.finish<s.start&&o.push(t(e.FINISH_BEFORE_START,"Task "+s.uid+" finish ("+s.finish+") < start ("+s.start+")",{taskUid:s.uid})),"number"==typeof s.duration&&s.duration<0&&o.push(t(e.NEGATIVE_DURATION,"Task "+s.uid+" has negative duration",{taskUid:s.uid}))}for(let r=0;r<n.tasks.length;r++){const s=n.tasks[r];null!=s.parentUid&&void 0===i[s.parentUid]&&o.push(t(e.DANGLING_PARENT,"Task "+s.uid+" references missing parent "+s.parentUid,{taskUid:s.uid,parentUid:s.parentUid}))}for(let r=0;r<n.tasks.length;r++){const s=n.tasks[r];let a=s,u=0;const c={};for(c[a.uid]=!0;null!=a.parentUid&&u<n.tasks.length+1;){const n=i[a.parentUid];if(!n)break;if(c[n.uid]){o.push(t(e.CIRCULAR_OUTLINE,"Circular outline detected at task "+s.uid,{taskUid:s.uid}));break}c[n.uid]=!0,a=n,u++}}for(let r=0;r<n.tasks.length;r++){const s=n.tasks[r],a=s.predecessors||[];for(let n=0;n<a.length;n++){const r=a[n];r.crossProject||void 0===i[r.predecessorUid]&&o.push(t(e.DANGLING_PREDECESSOR,"Task "+s.uid+" has predecessor "+r.predecessorUid+" that does not exist",{taskUid:s.uid,predecessorUid:r.predecessorUid}))}}const a={};for(let e=0;e<n.tasks.length;e++){const t=n.tasks[e],r=t.predecessors||[];for(let e=0;e<r.length;e++){const n=r[e];n.crossProject||i[n.predecessorUid]&&(a[n.predecessorUid]=a[n.predecessorUid]||[]).push(t.uid)}}const u={},c={};for(let e=0;e<n.tasks.length;e++)u[n.tasks[e].uid]=0;function l(n,r){const s=n.indexOf(r),i=n.slice(s);let a=i.slice().sort(function(e,t){return e-t}).join(",");c[a]||(c[a]=!0,o.push(t(e.CIRCULAR_DEPENDENCY,"Circular dependency: "+i.concat([r]).join(" → "),{taskUids:i})))}function d(e,t){u[e]=1,t.push(e);const n=a[e]||[];for(let e=0;e<n.length;e++){const r=n[e];1===u[r]?l(t,r):0===u[r]&&d(r,t)}t.pop(),u[e]=2}for(let e=0;e<n.tasks.length;e++){const t=n.tasks[e].uid;0===u[t]&&d(t,[])}const f={};for(let r=0;r<n.resources.length;r++){const s=n.resources[r];void 0!==f[s.uid]?o.push(t(e.DUPLICATE_RESOURCE_UID,"Duplicate resource UID "+s.uid,{resourceUid:s.uid})):f[s.uid]=s}for(let r=0;r<n.assignments.length;r++){const a=n.assignments[r];if(void 0===i[a.taskUid]&&o.push(t(e.ASSIGNMENT_BAD_TASK,"Assignment references missing task "+a.taskUid,{assignmentUid:a.uid,taskUid:a.taskUid})),-65535!==a.resourceUid&&void 0===f[a.resourceUid]){const n=s?null:t(e.ASSIGNMENT_BAD_RESOURCE,"Assignment references missing resource "+a.resourceUid,{assignmentUid:a.uid,resourceUid:a.resourceUid});n&&o.push(n)}}return{ok:0===o.length,errors:o}}void 0!==n&&(n.DProjectValidator={validate:r,ERROR_CODES:e})}(),function(){"undefined"!=typeof require?require("./types/coerce"):void 0!==n&&n.DProjectCoerce;const e="undefined"!=typeof require?require("./types/fields"):void 0!==n?n.DProjectFields:null;function t(e){return null==e?"":a(String(e))}function r(e){return null==e?"0":String(0|e)}function s(e){return e?"1":"0"}function o(e){return e?String(e):""}function i(e){if(null==e||e<=0)return"PT0H0M0S";const t=+e,n=Math.floor(t);return"PT"+Math.floor(n/60)+"H"+n%60+"M"+Math.round(60*(t-n))+"S"}function a(e){return String(e).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;")}function u(e,n){switch(n){case"int":return r(e);case"float":return null==(a=e)?"0":String(+a);case"bool":return s(e);case"date":return o(e);case"duration":return i(e);default:return t(e)}var a}function c(e,t,n,r){const s=[];if(!e)return"";for(let o=0;o<t.length;o++){const i=t[o],a=i[0],c=i[1],d=i[2],f=!0===i[3],p=e[c];(r||f||!l(p,d))&&s.push(n+"<"+a+">"+u(p,d)+"</"+a+">")}return s.join("\n")}function l(e,t){if(null==e)return!0;switch(t){case"int":case"float":case"duration":return 0===e;case"bool":return!1===e;case"date":case"string":return""===e}return!1}function d(e,t){if(!e||!e.length)return"";const n=[];for(let o=0;o<e.length;o++){const i=e[o];n.push(t+"<PredecessorLink>"),n.push(t+"  <PredecessorUID>"+r(i.predecessorUid)+"</PredecessorUID>"),n.push(t+"  <Type>"+r(i.type)+"</Type>"),n.push(t+"  <CrossProject>"+s(i.crossProject)+"</CrossProject>"),n.push(t+"  <LinkLag>"+r(Math.round(10*(i.lag||0)))+"</LinkLag>"),n.push(t+"  <LagFormat>7</LagFormat>"),n.push(t+"</PredecessorLink>")}return n.join("\n")}function f(t,n){if(!t||!t.length)return"";const r=[];for(let s=0;s<t.length;s++){const o=t[s];r.push(n+"<Baseline>");const i=c(o,e.BASELINE_FIELDS,n+"  ",!0);i&&r.push(i),r.push(n+"</Baseline>")}return r.join("\n")}function p(e,n){if(!e||!e.length)return"";const s=[];for(let o=0;o<e.length;o++){const i=e[o];s.push(n+"<ExtendedAttribute>"),null!=i.rowUid&&0!==i.rowUid&&s.push(n+"  <UID>"+r(i.rowUid)+"</UID>"),s.push(n+"  <FieldID>"+t(i.fieldId)+"</FieldID>"),s.push(n+"  <Value>"+t(i.value)+"</Value>"),i.valueId&&s.push(n+"  <ValueID>"+t(i.valueId)+"</ValueID>"),s.push(n+"</ExtendedAttribute>")}return s.join("\n")}function h(e,n){if(!e||!e.length)return"";const o=[];o.push(n+"<WeekDays>");for(let i=0;i<e.length;i++){const a=e[i];if(o.push(n+"  <WeekDay>"),o.push(n+"    <DayType>"+r(a.dayType)+"</DayType>"),o.push(n+"    <DayWorking>"+s(a.dayWorking)+"</DayWorking>"),a.workingTimes&&a.workingTimes.length){o.push(n+"    <WorkingTimes>");for(let e=0;e<a.workingTimes.length;e++){const r=a.workingTimes[e];o.push(n+"      <WorkingTime>"),o.push(n+"        <FromTime>"+t(r.from)+"</FromTime>"),o.push(n+"        <ToTime>"+t(r.to)+"</ToTime>"),o.push(n+"      </WorkingTime>")}o.push(n+"    </WorkingTimes>")}o.push(n+"  </WeekDay>")}return o.push(n+"</WeekDays>"),o.join("\n")}function g(e,n){if(!e||!e.length)return"";const i=[];i.push(n+"<Exceptions>");for(let a=0;a<e.length;a++){const u=e[a];i.push(n+"  <Exception>"),u.startDate&&i.push(n+"    <EnteredStartDate>"+o(u.startDate)+"</EnteredStartDate>"),u.finishDate&&i.push(n+"    <EnteredFinishDate>"+o(u.finishDate)+"</EnteredFinishDate>"),u.name&&i.push(n+"    <Name>"+t(u.name)+"</Name>"),i.push(n+"    <Type>"+r(u.type||1)+"</Type>"),i.push(n+"    <DayWorking>"+s(u.dayWorking)+"</DayWorking>"),u.occurrences&&i.push(n+"    <Occurrences>"+r(u.occurrences)+"</Occurrences>"),i.push(n+"  </Exception>")}return i.push(n+"</Exceptions>"),i.join("\n")}var D={serialize:function(n,r){if(!n||"object"!=typeof n)throw new TypeError("DProject.serialize: expected Project object");const s=!1!==(r=r||{}).declaration,o=!1!==r.pretty,i=o?"  ":"",a=[];s&&a.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'),a.push('<Project xmlns="http://schemas.microsoft.com/project">');const u=c(n.meta||{},e.PROJECT_FIELDS,i,!1);u&&a.push(u);const l=function(e,n){if(!e||!e.length)return"";const r=[];r.push(n+"<ExtendedAttributes>");for(let s=0;s<e.length;s++){const o=e[s];r.push(n+"  <ExtendedAttribute>"),r.push(n+"    <FieldID>"+t(o.fieldId)+"</FieldID>"),o.fieldName&&r.push(n+"    <FieldName>"+t(o.fieldName)+"</FieldName>"),o.alias&&r.push(n+"    <Alias>"+t(o.alias)+"</Alias>"),o.phoneticAlias&&r.push(n+"    <PhoneticAlias>"+t(o.phoneticAlias)+"</PhoneticAlias>"),r.push(n+"  </ExtendedAttribute>")}return r.push(n+"</ExtendedAttributes>"),r.join("\n")}(n.extendedAttributeDefs,i);l&&a.push(l);const D=function(t,n){if(!t||!t.length)return"";const r=[];r.push(n+"<Calendars>");for(let s=0;s<t.length;s++){const o=t[s];r.push(n+"  <Calendar>");const i=c(o,e.CALENDAR_FIELDS,n+"    ",!0);i&&r.push(i);const a=h(o.weekDays,n+"    ");a&&r.push(a);const u=g(o.exceptions,n+"    ");u&&r.push(u),r.push(n+"  </Calendar>")}return r.push(n+"</Calendars>"),r.join("\n")}(n.calendars,i);return D&&a.push(D),n.tasks&&a.push(function(t,n){const r=[];r.push(n+"<Tasks>");for(let s=0;s<t.length;s++){const o=t[s];r.push(n+"  <Task>");const i=c(o,e.TASK_FIELDS,n+"    ",!1);i&&r.push(i);const a=d(o.predecessors,n+"    ");a&&r.push(a);const u=f(o.baselines,n+"    ");u&&r.push(u);const l=p(o.extendedAttributes,n+"    ");l&&r.push(l),r.push(n+"  </Task>")}return r.push(n+"</Tasks>"),r.join("\n")}(n.tasks,i)),n.resources&&a.push(function(t,n){const r=[];r.push(n+"<Resources>");for(let s=0;s<t.length;s++){const o=t[s];r.push(n+"  <Resource>");const i=c(o,e.RESOURCE_FIELDS,n+"    ",!1);i&&r.push(i);const a=p(o.extendedAttributes,n+"    ");a&&r.push(a),r.push(n+"  </Resource>")}return r.push(n+"</Resources>"),r.join("\n")}(n.resources,i)),n.assignments&&a.push(function(t,n){const r=[];r.push(n+"<Assignments>");for(let s=0;s<t.length;s++){const o=t[s];r.push(n+"  <Assignment>");const i=c(o,e.ASSIGNMENT_FIELDS,n+"    ",!1);i&&r.push(i);const a=p(o.extendedAttributes,n+"    ");a&&r.push(a),r.push(n+"  </Assignment>")}return r.push(n+"</Assignments>"),r.join("\n")}(n.assignments,i)),a.push("</Project>"),o?a.join("\n"):a.join("").replace(/\n/g,"")},_emitFields:c,_encDuration:i,_escXml:a};void 0!==n&&(n.DProjectSerializer=D)}(),function(){const e="undefined"!=typeof require?require("./src/xml"):void 0!==n?n.DProjectXML:null,t="undefined"!=typeof require?require("./src/parser"):void 0!==n?n.DProjectParser:null,r="undefined"!=typeof require?require("./src/normalizer"):void 0!==n?n.DProjectNormalizer:null,s="undefined"!=typeof require?require("./src/validator"):void 0!==n?n.DProjectValidator:null,o="undefined"!=typeof require?require("./src/serializer"):void 0!==n?n.DProjectSerializer:null;function i(n){if("string"!=typeof n)throw new TypeError("DProject.parse: expected string, got "+typeof n);if(0===n.length)throw new Error("DProject.parse: empty input");const s=e.parseXML(n),o=t.extractRawProject(s);return r.normalizeProject(o)}const DProject={parse:i,fromFile:function(e){if(null==e)return Promise.reject(new TypeError("DProject.fromFile: missing argument"));if("string"==typeof e){if("undefined"!=typeof require)try{const t=require("fs");return Promise.resolve(t.readFileSync(e,"utf-8")).then(i)}catch(e){return Promise.reject(e)}return Promise.reject(new Error("DProject.fromFile: string path requires Node fs"))}return(t=e,"undefined"!=typeof Response?new Response(t).text():"undefined"!=typeof FileReader?new Promise(function(e,n){const r=new FileReader;r.onload=function(){e(String(r.result))},r.onerror=function(){n(r.error||new Error("FileReader failed"))},r.readAsText(t,"utf-8")}):Promise.reject(new Error("DProject.fromFile: no Response or FileReader in this runtime"))).then(i);var t},fromUrl:function(e,t){return"function"!=typeof fetch?Promise.reject(new Error("DProject.fromUrl: global fetch is not available")):fetch(e,t||{}).then(function(e){if(!e.ok)throw new Error("DProject.fromUrl: HTTP "+e.status+" "+e.statusText);return e.text()}).then(i)},validate:function(e,t){return s.validate(e,t)},serialize:function(e,t){return o.serialize(e,t)},ERROR_CODES:s.ERROR_CODES,version:"1.0.5"};void 0!==n&&(n.DProject=DProject)}(),"undefined"!=typeof globalThis&&(globalThis.DProject=n.DProject)}("undefined"!=typeof globalThis?globalThis:"undefined"!=typeof window?window:"undefined"!=typeof self?self:this);</script>
+<script>
+'use strict';
+
+let _project = null;
+let _rawXml = '';
+
+document.getElementById('ver').textContent = 'v' + (window.DProject ? DProject.version : 'unknown');
+
+// ── File dispatch ─────────────────────────────────────────────────────────
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('file');
+const pickBtn = document.getElementById('pick');
+
+pickBtn.addEventListener('click', () => fileInput.click());
+drop.addEventListener('click', e => { if (e.target === drop || e.target.classList.contains('icon') || e.target.classList.contains('hint')) fileInput.click(); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+drop.addEventListener('drop', e => {
+  e.preventDefault();
+  drop.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => loadXmlString(String(reader.result), file.name);
+  reader.onerror = () => alert('Failed to read file: ' + reader.error);
+  reader.readAsText(file, 'utf-8');
+}
+
+// Sample fixture quick-loaders (relative paths — work via local server)
+function fetchSample(name) {
+  fetch('../tests/fixtures/' + name)
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(text => loadXmlString(text, name))
+    .catch(err => alert('Could not load ' + name + ': ' + err.message + '\n\nTip: open this page via a local web server (e.g., python3 -m http.server) — file:// can\'t fetch siblings.'));
+}
+document.getElementById('sample-01').addEventListener('click',   e => { e.preventDefault(); fetchSample('sample-01.xml'); });
+document.getElementById('sample-3p').addEventListener('click',   e => { e.preventDefault(); fetchSample('sample-3point.xml'); });
+document.getElementById('sample-grp').addEventListener('click',  e => { e.preventDefault(); fetchSample('sample-grouping.xml'); });
+document.getElementById('sample-link').addEventListener('click', e => { e.preventDefault(); fetchSample('sample-linktypes.xml'); });
+
+// ── Parse + render ────────────────────────────────────────────────────────
+function loadXmlString(xml, filename) {
+  if (!window.DProject) {
+    alert('DProject library not loaded. Make sure dist/dproject.min.js exists (run `npm run build` from dproject/).');
+    return;
+  }
+  try {
+    _rawXml = xml;
+    _project = DProject.parse(xml);
+  } catch (e) {
+    alert('Parse failed: ' + e.message);
+    return;
+  }
+  document.getElementById('drop').style.display = 'none';
+  document.getElementById('main').classList.add('visible');
+  document.getElementById('m-title').textContent = (_project.meta.title || _project.meta.name || filename || 'Untitled');
+  document.getElementById('m-sub').textContent = (filename || '') + ' — ' + (_rawXml.length / 1024).toFixed(1) + ' KB';
+
+  renderBanner();
+  updateCounts();
+  renderTasks();
+  renderResources();
+  renderAssignments();
+  renderCalendars();
+  renderBaselines();
+  renderExtAttr();
+  renderRaw();
+}
+
+function renderBanner() {
+  const v = DProject.validate(_project);
+  const b = document.getElementById('banner');
+  if (v.ok) {
+    b.className = 'banner ok';
+    b.innerHTML = '<b>✓ Valid MSPDI</b> — passed all schema checks (no duplicate UIDs, no dangling refs, no cycles).';
+  } else {
+    b.className = 'banner warn';
+    const items = v.errors.slice(0, 5).map(e => '<li>' + escape(e.code + ': ' + e.message) + '</li>').join('');
+    const more = v.errors.length > 5 ? '<li>…and ' + (v.errors.length - 5) + ' more</li>' : '';
+    b.innerHTML = '<b>⚠ Validation warnings (' + v.errors.length + ')</b><ul style="margin:6px 0 0 20px">' + items + more + '</ul>';
+  }
+}
+
+function updateCounts() {
+  document.getElementById('c-tasks').textContent = _project.tasks.length;
+  document.getElementById('c-res').textContent   = _project.resources.length;
+  document.getElementById('c-asn').textContent   = _project.assignments.length;
+  document.getElementById('c-cal').textContent   = _project.calendars.length;
+  let baseCount = 0;
+  for (const t of _project.tasks) baseCount += (t.baselines || []).length;
+  document.getElementById('c-base').textContent  = baseCount;
+  let eaCount = _project.extendedAttributeDefs.length;
+  for (const t of _project.tasks) eaCount += (t.extendedAttributes || []).length;
+  document.getElementById('c-ea').textContent    = eaCount;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Renderers ─────────────────────────────────────────────────────────────
+function renderTasks() {
+  const root = document.getElementById('panel-tasks');
+  if (!_project.tasks.length) { root.innerHTML = '<div class="empty">No tasks.</div>'; return; }
+  const rows = _project.tasks.map(t => {
+    const indent = '<span class="indent" style="width:' + ((t.outlineLevel || 0) * 14) + 'px"></span>';
+    const typePill = '<span class="pill ' + t.type + (t.summary ? ' summary' : t.milestone ? ' milestone' : ' task') + '">' + (t.summary ? 'Σ' : t.milestone ? '◆' : '·') + '</span>';
+    const depCount = (t.predecessors || []).length;
+    const baseCount = (t.baselines || []).length;
+    const eaCount = (t.extendedAttributes || []).length;
+    return '<tr>'
+      + '<td class="num">' + t.uid + '</td>'
+      + '<td>' + indent + ' ' + typePill + ' ' + escape(t.name) + '</td>'
+      + '<td class="dim">' + (t.start || '').substring(0, 10) + '</td>'
+      + '<td class="dim">' + (t.finish || '').substring(0, 10) + '</td>'
+      + '<td class="num">' + minToDays(t.duration) + 'd</td>'
+      + '<td class="num">' + (t.percentComplete || 0) + '%</td>'
+      + '<td class="num">' + (depCount || '') + '</td>'
+      + '<td class="num">' + (baseCount || '') + '</td>'
+      + '<td class="num">' + (eaCount || '') + '</td>'
+      + '</tr>';
+  }).join('');
+  root.innerHTML = '<table><thead><tr><th>UID</th><th>Name</th><th>Start</th><th>Finish</th><th>Dur</th><th>%</th><th>Deps</th><th>Base</th><th>EA</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function renderResources() {
+  const root = document.getElementById('panel-resources');
+  if (!_project.resources.length) { root.innerHTML = '<div class="empty">No resources.</div>'; return; }
+  const rows = _project.resources.map(r => {
+    const typePill = r.type === 1 ? '<span class="pill material">Material</span>' : '<span class="pill work">Work</span>';
+    return '<tr>'
+      + '<td class="num">' + r.uid + '</td>'
+      + '<td>' + typePill + ' ' + escape(r.name) + '</td>'
+      + '<td class="dim">' + escape(r.emailAddress || '') + '</td>'
+      + '<td class="dim">' + escape(r.materialLabel || '') + '</td>'
+      + '<td class="num">' + (r.standardRate || 0) + '</td>'
+      + '<td class="num">' + (r.maxUnits || 0) + '</td>'
+      + '<td class="num">' + (r.calendarUid || '') + '</td>'
+      + '</tr>';
+  }).join('');
+  root.innerHTML = '<table><thead><tr><th>UID</th><th>Name</th><th>Email</th><th>Unit</th><th>Rate</th><th>Max</th><th>Cal</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function renderAssignments() {
+  const root = document.getElementById('panel-assignments');
+  if (!_project.assignments.length) { root.innerHTML = '<div class="empty">No assignments.</div>'; return; }
+  const rows = _project.assignments.map(a => '<tr>'
+    + '<td class="num">' + a.uid + '</td>'
+    + '<td class="num">' + a.taskUid + '</td>'
+    + '<td class="num">' + a.resourceUid + '</td>'
+    + '<td class="num">' + (a.units != null ? a.units.toFixed(2) : '') + '</td>'
+    + '<td class="num">' + minToDays(a.work) + 'd</td>'
+    + '<td class="num">' + (a.cost || 0) + '</td>'
+    + '<td class="dim">' + (a.start || '').substring(0, 10) + '</td>'
+    + '<td class="dim">' + (a.finish || '').substring(0, 10) + '</td>'
+    + '</tr>').join('');
+  root.innerHTML = '<table><thead><tr><th>UID</th><th>Task</th><th>Resource</th><th>Units</th><th>Work</th><th>Cost</th><th>Start</th><th>Finish</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function renderCalendars() {
+  const root = document.getElementById('panel-calendars');
+  if (!_project.calendars.length) { root.innerHTML = '<div class="empty">No calendars.</div>'; return; }
+  const html = _project.calendars.map(c => {
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const wd = (c.weekDays || []).map(w => days[w.dayType - 1] + (w.dayWorking ? '✓' : '✗')).join(' ');
+    const exc = (c.exceptions || []).map(e =>
+      '<tr><td>' + escape(e.name || '') + '</td><td class="dim">' + (e.startDate || '').substring(0,10) + '</td><td>' + (e.dayWorking ? 'Working' : 'Non-working') + '</td></tr>'
+    ).join('');
+    return '<div style="margin-bottom:24px"><h3 style="font-size:14px;margin-bottom:8px">' + escape(c.name || 'Unnamed') + ' <span style="color:#94a3b8;font-weight:400;font-size:12px">UID ' + c.uid + (c.isBaseCalendar ? ' · Base' : '') + '</span></h3>'
+      + '<div style="font-family:ui-monospace,monospace;font-size:12px;color:#475569;margin-bottom:8px">' + wd + '</div>'
+      + (exc ? '<table><thead><tr><th>Exception</th><th>Date</th><th>Type</th></tr></thead><tbody>' + exc + '</tbody></table>' : '<div class="info">No exceptions.</div>')
+      + '</div>';
+  }).join('');
+  root.innerHTML = html;
+}
+
+function renderBaselines() {
+  const root = document.getElementById('panel-baselines');
+  const rows = [];
+  for (const t of _project.tasks) {
+    for (const b of (t.baselines || [])) {
+      rows.push('<tr>'
+        + '<td class="num">' + t.uid + '</td>'
+        + '<td>' + escape(t.name) + '</td>'
+        + '<td class="num">#' + b.number + '</td>'
+        + '<td class="dim">' + (b.start || '').substring(0,10) + '</td>'
+        + '<td class="dim">' + (b.finish || '').substring(0,10) + '</td>'
+        + '<td class="num">' + minToDays(b.duration) + 'd</td>'
+        + '<td class="num">' + (b.cost || 0) + '</td>'
+        + '</tr>');
+    }
+  }
+  if (!rows.length) { root.innerHTML = '<div class="empty">No baselines saved.</div>'; return; }
+  root.innerHTML = '<table><thead><tr><th>Task UID</th><th>Name</th><th>Baseline</th><th>Start</th><th>Finish</th><th>Dur</th><th>Cost</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+}
+
+function renderExtAttr() {
+  const root = document.getElementById('panel-extattr');
+  let html = '';
+  if (_project.extendedAttributeDefs.length) {
+    const defs = _project.extendedAttributeDefs.map(d => '<tr>'
+      + '<td>' + escape(d.fieldId) + '</td>'
+      + '<td>' + escape(d.fieldName || '') + '</td>'
+      + '<td><b>' + escape(d.alias || '') + '</b></td>'
+      + '</tr>').join('');
+    html += '<h3 style="font-size:14px;margin-bottom:8px">Definitions</h3><table><thead><tr><th>FieldID</th><th>Field Name</th><th>Alias</th></tr></thead><tbody>' + defs + '</tbody></table>';
+  }
+  const valRows = [];
+  for (const t of _project.tasks) {
+    for (const v of (t.extendedAttributes || [])) {
+      valRows.push('<tr>'
+        + '<td class="num">' + t.uid + '</td>'
+        + '<td>' + escape(t.name) + '</td>'
+        + '<td>' + escape(v.fieldId) + '</td>'
+        + '<td>' + escape(v.value) + '</td>'
+        + '</tr>');
+    }
+  }
+  if (valRows.length) {
+    html += '<h3 style="font-size:14px;margin:24px 0 8px">Per-task values</h3><table><thead><tr><th>Task UID</th><th>Name</th><th>FieldID</th><th>Value</th></tr></thead><tbody>' + valRows.join('') + '</tbody></table>';
+  }
+  if (!html) html = '<div class="empty">No ExtendedAttribute data.</div>';
+  root.innerHTML = html;
+}
+
+function renderRaw() {
+  document.getElementById('panel-raw').innerHTML = '<pre>' + escape(JSON.stringify(_project, null, 2)) + '</pre>';
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────
+document.getElementById('btn-new').addEventListener('click', () => {
+  document.getElementById('main').classList.remove('visible');
+  document.getElementById('drop').style.display = 'flex';
+  fileInput.value = '';
+});
+
+document.getElementById('btn-roundtrip').addEventListener('click', () => {
+  try {
+    const xml2 = DProject.serialize(_project);
+    const reparsed = DProject.parse(xml2);
+    const t1 = _project.tasks.length, t2 = reparsed.tasks.length;
+    const r1 = _project.resources.length, r2 = reparsed.resources.length;
+    const c1 = _project.calendars.length, c2 = reparsed.calendars.length;
+    const ok = t1 === t2 && r1 === r2 && c1 === c2;
+    alert((ok ? '✓ Round-trip OK' : '✗ Round-trip mismatch') +
+          '\nTasks:     ' + t1 + ' → ' + t2 +
+          '\nResources: ' + r1 + ' → ' + r2 +
+          '\nCalendars: ' + c1 + ' → ' + c2 +
+          '\nXML size:  ' + (_rawXml.length / 1024).toFixed(1) + ' KB → ' + (xml2.length / 1024).toFixed(1) + ' KB');
+  } catch (e) {
+    alert('Round-trip failed: ' + e.message);
+  }
+});
+
+document.getElementById('btn-rawxml').addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-raw').innerHTML = '<pre>' + escape(_rawXml) + '</pre>';
+  document.getElementById('panel-raw').classList.add('active');
+  document.querySelector('.tabs button[data-tab="raw"]').classList.add('active');
+});
+
+document.getElementById('btn-rawjson').addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  renderRaw();
+  document.getElementById('panel-raw').classList.add('active');
+  document.querySelector('.tabs button[data-tab="raw"]').classList.add('active');
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function minToDays(mins) {
+  if (!mins) return 0;
+  return Math.round(mins / 480 * 10) / 10;
+}
+function escape(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+
+</body>
+</html>

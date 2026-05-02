@@ -1,0 +1,9 @@
+# Local development noise
+node_modules/
+.DS_Store
+
+# npm pack artefacts
+*.tgz
+
+# Output of examples/modify-and-write.js
+examples/*.out.xml

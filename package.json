@@ -1,0 +1,44 @@
+{
+  "name": "dproject",
+  "version": "1.0.6",
+  "description": "Read MS Project (MSPDI XML) files in JavaScript and TypeScript. Zero-dependency, browser + Node.",
+  "main": "dproject.js",
+  "browser": "dproject.js",
+  "types": "dproject.d.ts",
+  "files": [
+    "dproject.js",
+    "dproject.d.ts",
+    "src/",
+    "LICENSE",
+    "NOTICE.md",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "test:gc": "node --expose-gc tests/run-all.js",
+    "build": "node build.mjs"
+  },
+  "keywords": [
+    "msproject",
+    "ms-project",
+    "mspdi",
+    "gantt",
+    "project-planning",
+    "xml-parser",
+    "scheduling",
+    "dproject"
+  ],
+  "author": "Dharmesh Patel",
+  "license": "MIT",
+  "homepage": "https://github.com/Dharmesh2015/dproject#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dharmesh2015/dproject.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Dharmesh2015/dproject/issues"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}
