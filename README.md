@@ -4,8 +4,11 @@
 > Zero dependencies. Works in the browser, in Node, and in workers.
 > A clean-room JS implementation of the MSPDI reader the ecosystem has been missing for a decade.
 
+[![npm version](https://img.shields.io/npm/v/dproject.svg)](https://www.npmjs.com/package/dproject)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1%20spike-orange.svg)]()
+[![Bundle size (gzip)](https://img.shields.io/bundlephobia/minzip/dproject.svg?label=gzip)](https://bundlephobia.com/package/dproject)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](package.json)
+[![Types included](https://img.shields.io/badge/types-included-blue.svg)](dproject.d.ts)
 
 ---
 
